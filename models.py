@@ -2,8 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, func, F
 from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session, relationship
 from werkzeug.security import generate_password_hash, check_password_hash
 
-
-engine = create_engine('mysql+pymysql://root:senaisp@localhost:3306/base_api', pool_size=10, max_overflow=20)
+engine = create_engine('mysql+pymysql://root:senaisp@localhost:3306/banco_frota', pool_size=10, max_overflow=20)
 
 Base = declarative_base()
 db_session = scoped_session(sessionmaker(bind=engine))
@@ -11,11 +10,11 @@ db_session = scoped_session(sessionmaker(bind=engine))
 class Policial(Base):
     __tablename__ = 'policial'
     id_policial = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
+    nome = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
     senha = Column(Text, nullable=False)
     cargo_patente = Column(String(125), nullable=False)
-    matricula = Column(Integer, nullable=False)
+    matricula = Column(String(50), nullable=False)
 
     def set_senha_hash(self, senha):
         self.senha = generate_password_hash(senha)
@@ -26,7 +25,7 @@ class Policial(Base):
     def serialize(self):
         dados = {
             'id_policial': self.id_policial,
-            'name': self.name,
+            'nome': self.nome,
             'email': self.email,
             'senha': self.senha,
             'cargo_patente': self.cargo_patente,
@@ -43,7 +42,7 @@ class Viatura(Base):
     km_atual = Column(Float, nullable=False)
     prefixo = Column(String(125), nullable=False)
     modelo = Column(Integer, nullable=False)
-    status_atual = Column(Enum('disponivel','oficina','atencao'), nullable=False)
+    status_atual = Column(Enum('disponivel','oficina','atencao'),default="disponivel", nullable=False)
 
     def serialize(self):
         dados = {
@@ -66,6 +65,12 @@ class Responsavel(Base):
     senha = Column(Text, nullable=False)
     cargo_funcao = Column(String(155), nullable=False)
 
+    def set_senha_hash(self, senha):
+        self.senha = generate_password_hash(senha)
+
+    def check_password_hash(self, senha):
+        return check_password_hash(self.senha, senha)
+
     def serialize(self):
         dados = {
             "id_responsavel": self.id_responsavel,
@@ -85,7 +90,6 @@ class Itens_Manutencao(Base):
     categoria_falha = Column(Enum('motor','cambio','embreagem','freio','suspensao','direcao','bateria','injecao_eletronica','iluminacao','ar_condicionado','arrefecimento','alimentacao'), nullable=False)
     valor_unitario = Column(Float, nullable=False)
 
-
     def serialize(self):
         dados = {
             "id_item": self.id_item,
@@ -95,13 +99,14 @@ class Itens_Manutencao(Base):
             "valor_unitario": self.valor_unitario,
 
         }
+        return dados
 
 class Checklist_Turno(Base):
     __tablename__ = 'checklist_turno'
     id_checklist = Column(Integer, primary_key=True)
     viatura_id = Column(Integer, ForeignKey('viatura.id_viatura'))
     policial_id = Column(Integer, ForeignKey('policial.id_policial'))
-    data_hora = Column(DateTime, nullable=False)
+    data_hora = Column(DateTime,default=func.now(), nullable=False)
     nivel_oleo = Column(Enum('alto','medio','baixo'), nullable=False)
     status_pneu = Column(Enum('ok','intermediario','ruim'), nullable=False)
     km_abertura = Column(Float, nullable=False)
@@ -129,7 +134,7 @@ class Ordem_Servico(Base):
     responsavel_id = Column(Integer, ForeignKey('responsavel.id_responsavel'))
     data_abertura = Column(DateTime, nullable=False, default=func.now())
     data_fechamento = Column(DateTime)
-    tipo_manutencao = Column(Enum('preventiva','correntiva'), nullable=False)
+    tipo_manutencao = Column(Enum('preventiva','corretiva'), nullable=False)
     status_os = Column(Enum('andamento','concluida'), nullable=False)
     custo_total = Column(Float, nullable=False)
 
@@ -145,8 +150,6 @@ class Ordem_Servico(Base):
             "custo_total": self.custo_total,
 
         }
-
-
 
 
 class Ordem_Itens(Base):
