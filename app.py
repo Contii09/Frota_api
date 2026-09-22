@@ -181,7 +181,7 @@ def post_policial():
         result_policia = db_session.execute(sql_p).scalar()
 
         if result_policia:
-            return jsonify({'msg': "Usuário já existe"}), 400
+            return jsonify({'msg': "Este policial já existe"}), 400
 
         new_p = Policial(nome=nome, email=email, cargo_patente=cargo_patente, matricula=matricula)
         new_p.set_senha_hash(senha)
@@ -189,7 +189,7 @@ def post_policial():
         db_session.commit()
 
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Policial criado com sucesso",
             "user_id": new_p.id_policial
         }
 
@@ -221,7 +221,7 @@ def post_viatura():
         result_viatura = db_session.execute(sql_p).scalar()
 
         if result_viatura:
-            return jsonify({'msg': "Usuário já existe"}), 400
+            return jsonify({'msg': "Esta viatura já existe"}), 400
 
         new_v = Viatura(placa=placa, ano=ano, km_atual=km_atual, prefixo=prefixo, modelo=modelo,
                         status_atual=status_atual)
@@ -229,7 +229,7 @@ def post_viatura():
         db_session.commit()
 
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Viatura criado com sucesso",
             "user_id": new_v.id_viatura
         }
 
@@ -259,7 +259,7 @@ def post_responsavel():
         result_responsavel = db_session.execute(sql_p).scalar()
 
         if result_responsavel:
-            return jsonify({'msg': "Usuário já existe"}), 400
+            return jsonify({'msg': "Este responsavel já existe"}), 400
 
         new_p = Responsavel(nome=nome, email=email, cargo_funcao=cargo_funcao)
         new_p.set_senha_hash(senha)
@@ -267,7 +267,7 @@ def post_responsavel():
         db_session.commit()
 
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Responsavel criado com sucesso",
             "user_id": new_p.id_responsavel
         }
 
@@ -296,11 +296,9 @@ def post_itens_manutencao():
     try:
         new_p = Itens_Manutencao(nome_item=nome_item, descricao=descricao, categoria_falha=categoria_falha, valor_unitario=valor_unitario )
         db_session.add(new_p)
-        db_session.add(new_p)
         db_session.commit()
-
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Item de manutenção criado com sucesso",
             "user_id": new_p.id_item
         }
 
@@ -334,7 +332,7 @@ def post_checklist():
         db_session.commit()
 
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Checklist criado com sucesso",
             "user_id": new_p.id_checklist
         }
 
@@ -367,7 +365,7 @@ def post_ordem_servico():
         db_session.commit()
 
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Ordem de serviço criado com sucesso",
             "user_id": new_p.id_ordem
         }
 
@@ -397,7 +395,7 @@ def post_ordem_itens():
         db_session.commit()
 
         info = {
-            "msg": "Usuário criado com sucesso",
+            "msg": "Ordem de itens criado com sucesso",
             "user_id": new_p.id_lista
         }
 
@@ -897,6 +895,7 @@ def pesquisar_itens_manutencao():
         for r in rastreio:
             print(r.nome_item, r.id_item)
             print(r.serialize())
+
             lista.append(r.serialize())
 
         db_session.commit()
@@ -910,6 +909,6 @@ def pesquisar_itens_manutencao():
         db_session.close()
 
 
-
 if __name__ == '__main__':
     app.run(debug=True,port=5005,host='0.0.0.0')
+
