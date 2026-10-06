@@ -126,6 +126,8 @@ class Checklist_Turno(Base):
 
         }
 
+        return dados
+
 
 class Ordem_Servico(Base):
     __tablename__ = 'ordem_servico'
@@ -151,6 +153,8 @@ class Ordem_Servico(Base):
 
         }
 
+        return dados
+
 
 class Ordem_Itens(Base):
     __tablename__ = 'ordem_itens'
@@ -165,3 +169,5 @@ class Ordem_Itens(Base):
             "item_id": self.item_id,
 
         }
+
+        return dados
