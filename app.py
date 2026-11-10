@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 from flask import Flask, jsonify, request
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from models import Policial, db_session, Viatura, Checklist_Turno, Responsavel, Itens_Manutencao, Ordem_Itens, \
+from models import Policial, db_session, Viatura, Checklist_Turno, Itens_Manutencao, Ordem_Itens, \
     Ordem_Servico
 import os
 from dotenv import load_dotenv
@@ -18,7 +18,7 @@ app = Flask(__name__)
 # definir a senha, em produção colocar em local seguro
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dev-secret-change-me")
 jwt = JWTManager(app)
-
+''
 # previne gargalo "too many connections"
 """
     ### @app.teardown_appcontext (O Zelador)
@@ -42,6 +42,8 @@ def gerar_codigo(tipo='nenhum', contagem=0):
         return "PM-"+variavel
     elif tipo.upper() == 'VTR':
         return "VTR-"+variavel
+
+
 
 
 @app.route('/get_policiais', methods=['GET'])
@@ -124,43 +126,6 @@ def get_viaturas():
     finally:
         db_session.remove()
 
-@app.route('/get_responsaveis', methods=['GET'])
-def get_responsaveis():
-    """
-      **API para Consulta de Responsaveis**
-
-      ### Endpoint:
-      GET /get_responssveis
-
-      ### Parametros de Entrada:
-      Não possui parâmetros de entrada.
-
-      ### Respostas (JSON):
-      * **200 OK:** Lista de responsaveis retornada com sucesso.
-        ```json
-        [
-            {
-                "id_responsavel": 1,
-                "nome": "string",
-                "email": "string",
-                "senha": "string",
-                "cargo_funcao": "string",
-            }
-        ]
-        ```
-    """
-    try:
-        sql_r = select(Responsavel)
-        result_responsavel = db_session.execute(sql_r).scalars()
-        lista_r = []
-        for r in result_responsavel:
-            lista_r.append(r.serialize())
-        return jsonify(lista_r), 200
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'msg': str(e)}), 500
-    finally:
-        db_session.remove()
 
 @app.route('/get_itens', methods=['GET'])
 def get_itens():
@@ -325,6 +290,76 @@ def get_ordem_itens():
         db_session.remove()
 
 
+@app.route('/login', methods=['POST'])
+def login():
+    """
+        **API para Login**
+
+        ### Endpoint:
+        POST /login
+
+        ### Parâmetros de Entrada (JSON):
+        ```json
+        {
+            "email": "string (obrigatorio) - Endereço de e-mail do policial",
+            "senha": "string (obrigatorio) - Senha para acesso ao sistema",
+        }
+        ```
+
+        ### Respostas (JSON):
+        * **201 Created:** Policial logado com sucesso.
+          ```json
+          {
+            "msg": "Policial Encontrado",
+            "user": {
+                "cargo_patente": "capitao",
+                "email": "flamingo@gmail.com",
+                "id_policial": 1,
+                "matricula": "PM-66849",
+                "nome": "Flamingo",
+                "senha": "**"
+            }
+          ```
+        * **400 Bad Request:** Ausencia de campos obrigatorios.
+          ```json
+          {
+            "msg": "Email ou senha incorreto"
+          }
+          ```
+        * **500 Internal Server Error:** Falha operacional no banco de dados.
+          ```json
+          {
+              "msg": "Policial não encontrado"
+          }
+          ```
+        """
+    db = db_session()
+    try:
+        dados= request.get_json()
+        email= dados.get('email')
+        senha= dados.get('senha')
+
+        if not email and not senha:
+            return jsonify({'msg': 'Email ou senha incorreto'}), 400
+
+        sql_l = select(Policial).where(Policial.email == email)
+        result_policia = db.execute(sql_l).scalars().first()
+
+        if result_policia and result_policia.check_password_hash(senha):
+            return jsonify({
+                'msg': "Policial Encontrado",
+                'user': result_policia.serialize()
+            }), 201
+
+        return jsonify({'msg': 'Policial não encontrado'}), 400
+
+    except Exception as e:
+        db_session.rollback()
+        print(f'Error: {e}')
+        return jsonify({'msg': str(e)}), 500
+
+
+
 
 
 
@@ -480,80 +515,6 @@ def post_viatura():
     finally:
         db_session.remove()
 
-@app.route('/post_responsavel', methods=['POST'])
-def post_responsavel():
-    """
-        **API para Cadastro de Responsavel**
-
-        ### Endpoint:
-        POST /post_policial
-
-        ### Parâmetros de Entrada (JSON):
-        ```json
-        {
-             "nome": "string (obrigatorio) - Nome do responsável",
-            "email": "string (obrigatorio) - Endereço de e-mail do responsável",
-            "senha": "string (obrigatorio) - Senha para acesso ao sistema",
-            "cargo_funcao": "string (obrigatorio) - Cargo ou função do responsável"
-        }
-        ```
-
-        ### Respostas (JSON):
-        * **200 Created:** Responsavel registrada com sucesso.
-          ```json
-          {
-              "msg": "Responsavel criado com sucesso",
-              "user_id": new_p.id_responsavel
-          }
-          ```
-        * **400 Bad Request:** Ausencia de campos obrigatorios ou responsavel ja cadastrada.
-          ```json
-          {
-              "msg": "Valor não Encontrado"
-          }
-          ```
-        * **500 Internal Server Error:** Falha operacional no banco de dados.
-          ```json
-          {
-              "msg": "[Descricao do Erro]"
-          }
-          ```
-        """
-
-    dados = request.get_json()
-    if not dados:
-        return jsonify({'msg': "Dados não encontrados"}), 400
-    nome = dados.get('nome')
-    email = dados.get('email')
-    senha = dados.get('senha')
-    cargo_funcao = dados.get('cargo_funcao')
-
-    if not nome or not email or not senha or not cargo_funcao:
-        return jsonify({'msg': "Credenciais invalidas"}), 400
-
-    try:
-        sql_p = select(Responsavel).where(Responsavel.email == email)
-        result_responsavel = db_session.execute(sql_p).scalar()
-
-        if result_responsavel:
-            return jsonify({'msg': "Este responsavel já existe"}), 400
-
-        new_p = Responsavel(nome=nome, email=email, cargo_funcao=cargo_funcao)
-        new_p.set_senha_hash(senha)
-        db_session.add(new_p)
-        db_session.commit()
-
-        info = {
-            "msg": "Responsavel criado com sucesso",
-            "user_id": new_p.id_responsavel
-        }
-
-        return jsonify(info), 201
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'msg': str(e)}), 500
-    finally:
-        db_session.remove()
 
 @app.route('/post_itens_manutencao', methods=['POST'])
 def post_itens_manutencao():
@@ -599,7 +560,8 @@ def post_itens_manutencao():
         return jsonify({'msg': "Dados não encontrados"}), 400
     nome_item = dados.get('nome_item')
     descricao = dados.get('descricao')
-    categoria_falha = dados.get('categoria_falha')
+    categoria_falha = dados.get('categoria_f'
+                                '+,alha')
     valor_unitario = dados.get('valor_unitario')
 
     if not nome_item or not descricao or not categoria_falha or not valor_unitario:
@@ -736,16 +698,16 @@ def post_ordem_servico():
     if not dados:
         return jsonify({'msg': "Dados não encontrados"}), 400
     viatura_id = dados.get('viatura_id')
-    responsavel_id = dados.get('responsavel_id')
+    policial_id = dados.get('policial_id')
     tipo_manutencao = dados.get('tipo_manutencao')
     status_os = dados.get('status_os')
     custo_total = dados.get('custo_total')
 
-    if not viatura_id or not responsavel_id or not  tipo_manutencao or not status_os or not custo_total:
+    if not viatura_id or not policial_id or not  tipo_manutencao or not status_os or not custo_total:
         return jsonify({'msg': "Credenciais invalidas"}), 400
 
     try:
-        new_p = Ordem_Servico(viatura_id=viatura_id, responsavel_id=responsavel_id, tipo_manutencao=tipo_manutencao, status_os=status_os, custo_total=custo_total)
+        new_p = Ordem_Servico(viatura_id=viatura_id, policial_id=policial_id, tipo_manutencao=tipo_manutencao, status_os=status_os, custo_total=custo_total)
         db_session.add(new_p)
         db_session.commit()
 
@@ -972,18 +934,16 @@ def put_viatura(var_id):
         placa = dados.get('placa')
         ano = dados.get('ano')
         km_atual = dados.get('km_atual')
-        prefixo = dados.get('prefixo')
         modelo = dados.get('modelo')
         status_atual = dados.get('status_atual')
 
-        if not placa or not ano or not km_atual or not prefixo or not modelo or not status_atual:
+        if not placa or not ano or not km_atual or not modelo or not status_atual:
             return jsonify({'msg': "Credenciais invalidas"}), 400
 
         try:
             result.placa = placa
             result.ano = ano
             result.km_atual = km_atual
-            result.prefixo = prefixo
             result.modelo = modelo
             result.status_atual = status_atual
             db_session.commit()
@@ -996,85 +956,8 @@ def put_viatura(var_id):
         finally:
             db_session.close()
 
-@app.route('/put_responsavel/<var_id>', methods=['PUT'])
-def put_responsavel(var_id):
-    '''
-    **API para Atualização de Dados do Responsável**
 
-    ### Endpoint:
-    PUT /put_responsavel/{var_id}
-
-    ### Parâmetros de Path:
-    * `var_id`: inteiro (obrigatório) - Identificador único do responsável que será atualizado.
-
-    ### Parâmetros de Entrada (JSON):
-    ```json
-    {
-        "nome": "string (obrigatório) - Nome atualizado do responsável",
-        "email": "string (obrigatório) - Novo endereço de e-mail do responsável",
-        "senha": "string (obrigatório) - Nova senha para acesso ao sistema",
-        "cargo_funcao": "string (obrigatório) - Novo cargo ou função do responsável"
-    }
-    ```
-
-    ### Respostas (JSON):
-    * **200 OK:** Dados do responsável atualizados com sucesso.
-      ```json
-      {
-          "msg": "Responsavel atualizado com sucesso!"
-      }
-      ```
-    * **400 Bad Request:** Responsável não encontrado ou ausência de campos obrigatórios no JSON enviado.
-      ```json
-      {
-          "msg": "Responsavel não encontrado"
-      }
-      ```
-      *ou se faltarem dados (validação de credenciais):*
-      ```json
-      {
-          "msg": "Credenciais invalidas"
-      }
-      ```
-    * **500 Internal Server Error:** Falha operacional ou erro ao tentar salvar no banco de dados.
-      ```json
-      {
-          "msg": "[Descrição do Erro Técnico]"
-      }
-      ```
-    '''
-    editar = select(Responsavel).where(Responsavel.id_responsavel == int(var_id))
-    result = db_session.execute(editar).scalar_one_or_none()
-
-    if not result:
-        return jsonify({"msg": "Responsavel não encontrado"}), 400
-
-    if request.method == 'PUT':
-        dados = request.get_json()
-        nome = dados.get('nome')
-        email = dados.get('email')
-        senha = dados.get('senha')
-        cargo_funcao = dados.get('cargo_funcao')
-
-        if not nome or not email or not senha or not cargo_funcao:
-            return jsonify({'msg': "Credenciais invalidas"}), 400
-
-        try:
-            result.nome = nome
-            result.email = email
-            result.senha = senha
-            result.cargo_funcao = cargo_funcao
-            db_session.commit()
-            return jsonify({"msg": "Responsavel atualizado com sucesso!"}), 200
-
-        except Exception as e:
-            db_session.rollback()
-            print(f'Error: {e}')
-            return jsonify({'msg': str(e)}), 500
-        finally:
-            db_session.close()
-
-@app.route('/put_itens_manutencao/<var_id>', methods=['PUT'])
+@app.route('/put_item_manutencao/<var_id>', methods=['PUT'])
 def put_itens_manutencao(var_id):
     '''
     **API para Atualização de Item de Manutenção**
@@ -1297,17 +1180,17 @@ def put_ordem_servico(var_id):
     if request.method == 'PUT':
         dados = request.get_json()
         viatura_id = dados.get('viatura_id')
-        responsavel_id = dados.get('responsavel_id')
+        policial_id = dados.get('policial_id')
         tipo_manutencao = dados.get('tipo_manutencao')
         status_os = dados.get('status_os')
         custo_total = dados.get('custo_total')
         print('asd',tipo_manutencao)
-        if not viatura_id or not responsavel_id or not tipo_manutencao or not status_os or not custo_total:
+        if not viatura_id or not policial_id or not tipo_manutencao or not status_os or not custo_total:
             return jsonify({'msg': "Credenciais invalidas"}), 400
 
         try:
             result.viatura_id = viatura_id
-            result.responsavel_id = responsavel_id
+            result.policial_id = policial_id
             result.tipo_manutencao = tipo_manutencao
             result.status_os = status_os
             result.custo_total = custo_total
@@ -1495,54 +1378,6 @@ def delete_viatura(var_id):
         db_session.delete(result)
         db_session.commit()
         return jsonify({"msg": "Viatura deletada com sucesso!"}), 200
-
-    except Exception as e:
-        print(f'Error: {e}')
-        db_session.rollback()
-        return jsonify({'msg': str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/delete_responsavel/<var_id>', methods=['DELETE'])
-def delete_responsavel(var_id):
-    """
-    **API para Remoção de Responsável**
-
-    ### Endpoint:
-    DELETE /delete_responsavel/{var_id}
-
-    ### Parâmetros de Path:
-    * `var_id`: inteiro (obrigatório) - Identificador único do responsável que será removido.
-
-    ### Respostas (JSON):
-    * **200 OK:** Responsável removido com sucesso.
-      ```json
-      {
-          "msg": "Responsavel deletado com sucesso!"
-      }
-      ```
-    * **400 Bad Request:** Responsável com o ID fornecido não foi encontrado no sistema.
-      ```json
-      {
-          "msg": "Responsavel não encontrado"
-      }
-      ```
-    * **500 Internal Server Error:** Falha operacional ou erro ao tentar deletar do banco de dados.
-      ```json
-      {
-          "msg": "[Descrição do Erro Técnico]"
-      }
-      ```
-    """
-    delete = select(Responsavel).where(Responsavel.id_responsavel == int(var_id))
-    result = db_session.execute(delete).scalar_one_or_none()
-    if not result:
-        return jsonify({"msg": "Responsavel não encontrado"}), 400
-
-    try:
-        db_session.delete(result)
-        db_session.commit()
-        return jsonify({"msg": "Responsavel deletado com sucesso!"}), 200
 
     except Exception as e:
         print(f'Error: {e}')
@@ -1881,70 +1716,9 @@ def pesquisar_viatura():
     finally:
         db_session.close()
 
-@app.route('/pesquisar_responsavel', methods=['POST'])
-def pesquisar_responsavel():
-    """
-            **API para Pesquisa de Responsável**
-
-        ### Endpoint:
-        POST /pesquisar_responsavel
-
-        ### Parâmetros de Entrada (JSON):
-        ```json
-        {
-            "email": "string (obrigatório) - Endereço de e-mail institucional ou pessoal do responsável"
-        }
-        ```
-
-        ### Respostas (JSON):
-        * **200 OK:** Lista contendo os dados dos responsáveis encontrados para o e-mail informado.
-          ```json
-          [
-              {
-                  "id_responsavel": 1,
-                  "nome": "Nome completo do responsável",
-                  "email": "Email institucional ou pessoal",
-                  "cargo_funcao": "Cargo ou função do responsável"
-              }
-          ]
-          ```
-        * **400 Bad Request:** E-mail não fornecido no corpo da requisição.
-          ```json
-          {
-              "msg": "Nenhum rsponsavel encontrado"
-          }
-          ```
-        * **500 Internal Server Error:** Falha operacional ou erro ao tentar consultar o banco de dados.
-          ```json
-          {
-              "msg": "[Descrição do Erro Técnico]"
-          }
-          ```
-    """
-    dados = request.get_json()
-    email = dados.get('email')
-    if not email:
-        return jsonify({"msg": "Nenhum rsponsavel encontrado"}), 400
-
-    try:
-        busca = select(Responsavel).where(Responsavel.email == email)
-        rastreio = db_session.execute(busca).scalars().all()
-        lista = []
-        for r in rastreio:
-            lista.append(r.serialize())
-
-        db_session.commit()
-        return jsonify(lista), 200
-
-    except Exception as e:
-        print(f'Error: {e}')
-        db_session.rollback()
-        return jsonify({'msg': str(e)}), 500
-    finally:
-        db_session.close()
-
 @app.route('/pesquisar_itens_manutencao', methods=['POST'])
 def pesquisar_itens_manutencao():
+    
     """
             **API para Pesquisa de Itens de Manutenção**
 
